@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<title>AI ペットっち</title>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, orderBy, query, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const pid='kensetsu-nippo-842a2';
+const app=initializeApp({
+  apiKey:localStorage.getItem('fb_ak')||'',
+  authDomain:pid+'.firebaseapp.com',projectId:pid,
+  storageBucket:pid+'.firebasestorage.app',
+  messagingSenderId:'702880974315',
+  appId:'1:702880974315:web:985321dc9180046629c5ae'
+});
+const auth=getAuth(app),db=getFirestore(app);
+window.__fb={
+  signIn:(e,p)=>signInWithEmailAndPassword(auth,e,p),
+  signUp:(e,p)=>createUserWithEmailAndPassword(auth,e,p),
+  signOut:()=>signOut(auth),
+  getUser:(uid)=>getDoc(doc(db,'users',uid)),
+  setUser:(uid,d)=>setDoc(doc(db,'users',uid),d,{merge:true}),
+  getUsers:()=>getDocs(query(collection(db,'users'),orderBy('name'))),
+  delUser:(uid)=>deleteDoc(doc(db,'users',uid)),
+  ts:()=>serverTimestamp(),
+};
+// DOMContentLoaded内でonAuthStateChanged登録（index-136と同じ方式）
+document.addEventListener('DOMContentLoaded',()=>{
+  onAuthStateChanged(auth,async user=>{
+    if(user){
+      try{
+        const s=await getDoc(doc(db,'users',user.uid));
+        if(s.exists()&&s.data().isAdmin){
+          document.querySelectorAll('.admin-only').forEach(e=>e.style.display='block');
+        }
+        if(!s.exists()){
+          await setDoc(doc(db,'users',user.uid),{uid:user.uid,email:user.email,
+            name:user.email.split('@')[0],isAdmin:false,createdAt:serverTimestamp()},{merge:true});
+        }
+      }catch(e){}
+      showApp();
+    } else {
+      showLogin();
+    }
+  });
+});
+</script>
+<style>
+:root{--bd:#5c3d2e;--br:#8b5e3c;--bl:#c49a6c;--wm:#f5e6d0;--cr:#fdf6ec;
+  --gd:#e8b84b;--gn:#7cb87a;--rd:#e84a5f;--sh:rgba(92,61,46,.12);}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Zen Maru Gothic',sans-serif;background:var(--cr);}
+/* ログイン */
+#loginWrap{display:none;position:fixed;inset:0;background:linear-gradient(135deg,#fdf0e0,#fff5eb);z-index:9999;align-items:center;justify-content:center;padding:20px;}
+#loginWrap.on{display:flex;}
+.lcard{background:#fff;border-radius:24px;padding:32px 24px;width:100%;max-width:320px;box-shadow:0 8px 40px var(--sh);text-align:center;}
+.lcard .ico{font-size:52px;display:block;margin-bottom:6px;}
+.lcard h1{font-size:19px;font-weight:900;color:var(--bd);margin-bottom:3px;}
+.lcard p{font-size:11px;color:var(--bl);margin-bottom:18px;}
+.lf{margin-bottom:10px;text-align:left;}
+.lf label{display:block;font-size:11px;font-weight:700;color:var(--bl);margin-bottom:3px;}
+.lf input{width:100%;padding:11px 13px;border:2px solid var(--wm);border-radius:10px;font-family:inherit;font-size:14px;color:var(--bd);background:#fffaf5;outline:none;}
+.lerr{min-height:16px;font-size:12px;color:var(--rd);margin-bottom:6px;}
+.lbtn{width:100%;padding:13px;background:linear-gradient(135deg,var(--br),var(--bd));color:#fff;border:none;border-radius:12px;font-family:inherit;font-size:15px;font-weight:900;cursor:pointer;}
+/* 管理 */
+#adminWrap{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;align-items:center;justify-content:center;padding:16px;}
+#adminWrap.on{display:flex;}
+.abox{background:#fff;border-radius:20px;padding:22px;width:min(400px,100%);max-height:90dvh;overflow-y:auto;font-family:inherit;}
+.ahead{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:2px dashed var(--wm);}
+.ahead h2{font-size:16px;font-weight:900;color:var(--bd);}
+.aclose{background:none;border:none;font-size:20px;cursor:pointer;color:#aaa;}
+.asec{background:var(--cr);border-radius:12px;padding:14px;margin-bottom:14px;border:1.5px solid #e8d0a0;}
+.asec-t{font-size:12px;font-weight:900;color:var(--br);margin-bottom:10px;}
+.af{margin-bottom:9px;}
+.af label{display:block;font-size:11px;font-weight:700;color:var(--bl);margin-bottom:3px;}
+.af input{width:100%;padding:9px 11px;border:1.5px solid #e0c898;border-radius:8px;font-family:inherit;font-size:13px;background:#fffaf5;outline:none;}
+.apw{position:relative;}
+.apw input{padding-right:66px;}
+.agen{position:absolute;right:5px;top:50%;transform:translateY(-50%);background:var(--br);color:#fff;border:none;border-radius:5px;padding:3px 7px;font-size:10px;cursor:pointer;font-weight:700;}
+.aerr{min-height:14px;font-size:11px;margin-bottom:7px;}
+.asub{width:100%;padding:12px;background:linear-gradient(135deg,var(--br),var(--bd));color:#fff;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:900;cursor:pointer;}
+.alist-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;}
+.alist-t{font-size:12px;font-weight:900;color:var(--br);}
+.aref{background:var(--wm);border:1px solid #e0c898;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;color:var(--br);}
+.uitem{display:flex;align-items:center;justify-content:space-between;padding:9px 11px;background:var(--cr);border-radius:9px;margin-bottom:5px;border:1.5px solid #e8d0a0;}
+.uname{font-weight:700;font-size:12px;color:var(--bd);}
+.uemail{font-size:10px;color:var(--bl);margin-top:1px;}
+.ubadge{background:var(--br);color:#fff;font-size:8px;padding:1px 5px;border-radius:4px;margin-left:4px;}
+.udel{background:#fff0f0;border:1px solid #f0a0a0;color:var(--rd);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;}
+/* アプリバー */
+#appBar{display:none;background:linear-gradient(135deg,var(--bd),var(--br));color:#fff;padding:11px 15px;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+#appBar.on{display:flex;}
+.abar-t{font-size:13px;font-weight:900;letter-spacing:2px;}
+.abar-btns{display:flex;gap:6px;}
+.abar-btn{background:rgba(255,255,255,.2);border:none;color:#fff;font-family:inherit;font-size:10px;font-weight:700;padding:4px 9px;border-radius:7px;cursor:pointer;}
+/* 画面 */
+.scr{display:none;min-height:calc(100vh - 44px);}
+.scr.on{display:block;}
+#scrName.on,#scrArrive.on{display:flex;}
+/* ショップ */
+#scrShop{background:linear-gradient(180deg,#fff8f0,var(--cr));}
+.shop-h{padding:18px 14px 10px;text-align:center;background:linear-gradient(180deg,#fff3e0,transparent);border-bottom:2px dashed var(--wm);position:sticky;top:44px;z-index:10;backdrop-filter:blur(8px);}
+.shop-sign{display:inline-flex;align-items:center;gap:6px;background:var(--bd);color:#fff8f0;padding:7px 20px;border-radius:40px;font-size:15px;font-weight:900;letter-spacing:3px;box-shadow:0 4px 14px var(--sh);margin-bottom:5px;}
+.shop-sub{font-size:10px;color:var(--bl);}
+.sf{display:flex;gap:7px;overflow-x:auto;padding:8px 14px;scrollbar-width:none;}
+.sf::-webkit-scrollbar{display:none;}
+.fb{flex-shrink:0;padding:5px 13px;border-radius:20px;border:2px solid var(--wm);background:#fff;font-family:inherit;font-size:10px;font-weight:700;color:var(--br);cursor:pointer;white-space:nowrap;}
+.fb.on{background:var(--bd);color:#fff;border-color:var(--bd);}
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;padding:10px 14px 80px;}
+.pcard{background:#fff;border-radius:13px;padding:11px 5px;text-align:center;cursor:pointer;border:2px solid transparent;transition:all .2s;box-shadow:0 2px 7px var(--sh);position:relative;}
+.pcard.sel{border-color:var(--gd);}
+.pemoji{font-size:34px;display:block;margin-bottom:3px;}
+.pname{font-size:10px;font-weight:700;color:var(--bd);}
+.ptype{font-size:9px;color:var(--bl);}
+.prarity{position:absolute;top:4px;right:4px;font-size:8px;padding:1px 4px;border-radius:5px;font-weight:700;}
+.rr{background:#ffe0b2;color:#e65100;}.re{background:#e8d5ff;color:#6a1b9a;}.rl{background:linear-gradient(135deg,#ffd700,#ff8c00);color:#fff;}
+.sfooter{padding:12px 14px;background:#fff;border-top:2px solid var(--wm);position:fixed;bottom:0;left:0;right:0;}
+.bsel{width:100%;padding:14px;background:linear-gradient(135deg,var(--br),var(--bd));color:#fff;border:none;border-radius:13px;font-family:inherit;font-size:15px;font-weight:900;cursor:pointer;letter-spacing:2px;}
+.bsel:disabled{opacity:.4;}
+/* 名前 */
+#scrName{align-items:center;justify-content:center;background:linear-gradient(135deg,#fff8f0,var(--cr));padding:28px 20px;}
+.nbox{width:100%;max-width:340px;background:#fff;border-radius:26px;padding:28px 22px;box-shadow:0 8px 40px var(--sh);text-align:center;}
+.npet{font-size:68px;display:block;animation:fl 2s ease-in-out infinite;}
+@keyframes fl{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.nsp{font-size:12px;color:var(--bl);margin-bottom:5px;}
+.nt{font-size:16px;font-weight:900;color:var(--bd);margin-bottom:3px;}
+.ns{font-size:10px;color:var(--bl);margin-bottom:18px;line-height:1.6;}
+.gsel{display:flex;gap:9px;justify-content:center;margin-bottom:18px;}
+.gbtn{flex:1;padding:9px;border-radius:11px;border:2px solid var(--wm);background:#fffaf5;font-family:inherit;font-size:12px;font-weight:700;color:var(--br);cursor:pointer;}
+.gbtn.m.on{background:linear-gradient(135deg,#e3f2fd,#bbdefb);border-color:#64b5f6;color:#1565c0;}
+.gbtn.f.on{background:linear-gradient(135deg,#fce4ec,#f8bbd0);border-color:#f48fb1;color:#c62828;}
+.ninp{width:100%;padding:12px;border:2px solid var(--wm);border-radius:11px;font-family:inherit;font-size:16px;font-weight:700;text-align:center;color:var(--bd);background:#fffaf5;outline:none;margin-bottom:11px;}
+.nsugs{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:18px;}
+.nsug{padding:4px 11px;border-radius:16px;background:var(--wm);border:none;font-family:inherit;font-size:11px;font-weight:700;color:var(--br);cursor:pointer;}
+.badopt{width:100%;padding:14px;background:linear-gradient(135deg,var(--gn),#5a9e58);color:#fff;border:none;border-radius:11px;font-family:inherit;font-size:14px;font-weight:900;cursor:pointer;letter-spacing:2px;}
+.bback{margin-top:9px;background:none;border:none;font-family:inherit;font-size:11px;color:var(--bl);cursor:pointer;text-decoration:underline;}
+/* 到着 */
+#scrArrive{flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:36px 20px;background:linear-gradient(135deg,#fff8f0,#fef3e8);}
+.arremoji{font-size:86px;animation:ar .6s ease;}
+@keyframes ar{0%{transform:scale(0) rotate(-20deg);opacity:0}60%{transform:scale(1.2)}100%{transform:scale(1);opacity:1}}
+.arrt{font-size:21px;font-weight:900;color:var(--bd);}
+.arrb{background:#fff;border-radius:17px;padding:16px 20px;box-shadow:0 4px 18px var(--sh);font-size:13px;color:var(--bd);line-height:1.8;max-width:280px;position:relative;}
+.arrb::before{content:'💬';font-size:17px;position:absolute;top:-11px;left:16px;}
+.bstart{padding:14px 32px;background:linear-gradient(135deg,var(--gd),#d4960a);color:#fff;border:none;border-radius:11px;font-family:inherit;font-size:14px;font-weight:900;cursor:pointer;letter-spacing:2px;}
+/* ホーム */
+#scrHome{background:linear-gradient(180deg,#fff8f0,var(--cr));}
+.hpet{background:linear-gradient(180deg,#fff5e8,#fff8f0);padding:14px 18px 10px;text-align:center;border-bottom:2px dashed var(--wm);}
+.bigpet{font-size:64px;display:inline-block;animation:br 3s ease-in-out infinite;filter:drop-shadow(0 7px 14px var(--sh));}
+@keyframes br{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+.hinfo{display:flex;align-items:center;justify-content:space-between;padding:7px 14px;background:rgba(255,255,255,.92);border-bottom:1px solid var(--wm);}
+.hname{font-size:13px;font-weight:900;color:var(--bd);}
+.hsub{font-size:10px;color:var(--bl);}
+.twrap{display:flex;align-items:center;gap:4px;}
+.tlbl{font-size:9px;color:var(--bl);}
+.tbg{width:50px;height:4px;background:var(--wm);border-radius:2px;overflow:hidden;}
+.tbar{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--gd),#f4c842);transition:width .8s;}
+.tnum{font-size:10px;font-weight:700;color:var(--gd);}
+.mbtn{width:32px;height:32px;border-radius:50%;background:var(--wm);border:none;font-size:15px;cursor:pointer;}
+.chat{padding:12px;display:flex;flex-direction:column;gap:9px;min-height:200px;}
+.mw{display:flex;gap:6px;}
+.mw.u{flex-direction:row-reverse;}
+.mav{width:28px;height:28px;border-radius:50%;flex-shrink:0;background:linear-gradient(135deg,var(--wm),#fff);border:2px solid var(--bl);display:flex;align-items:center;justify-content:center;font-size:15px;align-self:flex-end;}
+.mav.ua{background:linear-gradient(135deg,#7bb8d4,#5a9ec4);border-color:#5a9ec4;font-size:11px;}
+.mb{max-width:75%;padding:8px 12px;border-radius:15px;font-size:13px;line-height:1.7;white-space:pre-wrap;}
+.mb.p{background:#fff;color:var(--bd);border-radius:4px 15px 15px 15px;box-shadow:0 2px 7px var(--sh);}
+.mb.u{background:linear-gradient(135deg,var(--br),var(--bd));color:#fff;border-radius:15px 4px 15px 15px;}
+.mt{font-size:9px;opacity:.5;margin-top:2px;}
+.mb.u .mt{text-align:right;}
+.typ{display:flex;gap:3px;align-items:center;padding:9px 13px;background:#fff;border-radius:4px 15px 15px 15px;box-shadow:0 2px 7px var(--sh);width:fit-content;}
+.td{width:5px;height:5px;border-radius:50%;background:var(--bl);animation:td 1.2s ease-in-out infinite;}
+.td:nth-child(2){animation-delay:.2s;}.td:nth-child(3){animation-delay:.4s;}
+@keyframes td{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
+.iarea{padding:9px 13px;background:rgba(255,255,255,.95);border-top:1px solid var(--wm);position:sticky;bottom:0;}
+.qbtns{display:flex;gap:6px;overflow-x:auto;margin-bottom:7px;scrollbar-width:none;}
+.qbtns::-webkit-scrollbar{display:none;}
+.qbtn{flex-shrink:0;padding:4px 11px;border-radius:16px;background:var(--wm);border:1px solid var(--bl);font-family:inherit;font-size:11px;font-weight:700;color:var(--br);cursor:pointer;white-space:nowrap;}
+.irow{display:flex;gap:6px;}
+.cinp{flex:1;padding:10px 13px;border:2px solid var(--wm);border-radius:20px;font-family:inherit;font-size:13px;color:var(--bd);background:#fffaf5;outline:none;resize:none;max-height:76px;}
+.cinp:focus{border-color:var(--bl);}
+.sbtn{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--br),var(--bd));border:none;color:#fff;font-size:16px;cursor:pointer;flex-shrink:0;}
+.sbtn:disabled{opacity:.4;}
+/* ドロワー */
+.dov{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:50;display:none;}
+.dov.on{display:block;}
+.drw{position:fixed;right:0;top:0;bottom:0;width:86%;max-width:320px;background:#fff;z-index:51;transform:translateX(100%);transition:transform .3s;overflow-y:auto;padding:26px 18px 36px;border-radius:20px 0 0 20px;box-shadow:-7px 0 36px var(--sh);}
+.drw.on{transform:translateX(0);}
+.dh{font-size:16px;font-weight:900;color:var(--bd);margin-bottom:16px;padding-bottom:12px;border-bottom:2px dashed var(--wm);display:flex;align-items:center;justify-content:space-between;}
+.dbtns{display:flex;gap:5px;}
+.dbtn{font-size:10px;padding:3px 9px;background:var(--wm);border:none;border-radius:7px;color:var(--br);cursor:pointer;font-family:inherit;font-weight:700;}
+.dbtn.adm{background:linear-gradient(135deg,var(--br),var(--bd));color:#fff;}
+.dpet{text-align:center;font-size:52px;margin-bottom:5px;}
+.dtrust{text-align:center;padding:12px;background:linear-gradient(135deg,#fff9f0,var(--wm));border-radius:11px;margin-bottom:16px;}
+.dtn{font-size:36px;font-weight:900;color:var(--gd);}
+.dtl{font-size:11px;color:var(--br);margin-top:2px;}
+.dsec{margin-bottom:18px;}
+.dsl{font-size:10px;font-weight:700;color:var(--bl);letter-spacing:2px;margin-bottom:7px;}
+.di{display:flex;justify-content:space-between;padding:6px 9px;background:var(--wm);border-radius:7px;margin-bottom:4px;font-size:12px;}
+.dik{color:var(--br);}.div{color:var(--bd);font-weight:700;}
+/* メモリー表示 */
+.mem-box{background:linear-gradient(135deg,#fff9f0,var(--cr));border:1.5px solid #e8d0a0;border-radius:11px;padding:11px;margin-bottom:14px;}
+.mem-item{font-size:11px;color:var(--bd);padding:4px 7px;background:#fff;border-radius:7px;margin-bottom:4px;border:1px solid var(--wm);}
+.mem-empty{font-size:11px;color:var(--bl);text-align:center;padding:8px;}
+.tgl{display:flex;flex-wrap:wrap;gap:5px;}
+.tg{padding:3px 9px;border-radius:16px;background:var(--wm);font-size:11px;font-weight:700;color:var(--br);border:1px solid var(--bl);}
+.bnew{width:100%;padding:12px;background:linear-gradient(135deg,#f4a7b9,#e87b9a);color:#fff;border:none;border-radius:11px;font-family:inherit;font-size:12px;font-weight:900;cursor:pointer;margin-top:5px;}
+/* トースト */
+.toast{position:fixed;bottom:85px;left:50%;transform:translateX(-50%);background:var(--bd);color:#fff;padding:8px 20px;border-radius:20px;font-size:12px;font-weight:700;z-index:200;pointer-events:none;animation:ti .3s ease;white-space:nowrap;}
+@keyframes ti{from{bottom:65px;opacity:0}to{bottom:85px;opacity:1}}
+</style>
+</head>
+<body>
+
+<!-- ログイン -->
+<div id="loginWrap">
+  <div class="lcard">
+    <span class="ico">🐾</span>
+    <h1>AI ペットっち</h1>
+    <p>登録済みユーザーのみ使用可能</p>
+    <div class="lf"><label>メールアドレス</label>
+      <input type="email" id="lEmail" placeholder="example@mail.com" autocomplete="email"></div>
+    <div class="lf"><label>パスワード</label>
+      <input type="password" id="lPass" placeholder="パスワード" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')pLogin()"></div>
+    <div class="lerr" id="lErr"></div>
+    <button class="lbtn" onclick="pLogin()">🔑 ログイン</button>
+  </div>
+</div>
+
+<!-- 管理パネル -->
+<div id="adminWrap">
+  <div class="abox">
+    <div class="ahead"><h2>⚙️ ユーザー管理</h2><button class="aclose" onclick="closeAdmin()">✕</button></div>
+    <div class="asec">
+      <div class="asec-t">➕ 新規ユーザー登録</div>
+      <div class="af"><label>表示名</label><input type="text" id="aName" placeholder="例：田中 花子"></div>
+      <div class="af"><label>メールアドレス</label><input type="email" id="aEmail" placeholder="example@mail.com"></div>
+      <div class="af"><label>仮パスワード</label>
+        <div class="apw"><input type="text" id="aPass" placeholder="例：Temp1234!">
+        <button class="agen" onclick="genPass()">自動生成</button></div></div>
+      <div class="aerr" id="aErr"></div>
+      <button class="asub" onclick="addUser()">🐾 登録する</button>
+    </div>
+    <div class="alist-h">
+      <div class="alist-t">📋 登録ユーザー一覧</div>
+      <button class="aref" onclick="loadUsers()">🔄 更新</button>
+    </div>
+    <div id="userList" style="font-size:12px;color:#aaa;">読み込み中...</div>
+  </div>
+</div>
+
+<!-- アプリバー -->
+<div id="appBar">
+  <span class="abar-t">🐾 AI ペットっち</span>
+  <div class="abar-btns">
+    <button class="abar-btn admin-only" onclick="openAdmin()" style="display:none;">⚙️ 管理</button>
+    <button class="abar-btn" onclick="pLogout()">ログアウト</button>
+  </div>
+</div>
+
+<!-- ショップ -->
+<div id="scrShop" class="scr">
+  <div class="shop-h">
+    <div class="shop-sign">🏪 ペットショップ</div>
+    <div class="shop-sub">あなたの相棒を選んでください</div>
+  </div>
+  <div class="sf" id="shopFilter">
+    <button class="fb on" onclick="flt('all',this)">すべて</button>
+    <button class="fb" onclick="flt('動物',this)">🐾 動物</button>
+    <button class="fb" onclick="flt('幻想',this)">✨ 幻想</button>
+    <button class="fb" onclick="flt('神話',this)">🌟 神話</button>
+    <button class="fb" onclick="flt('ロボット',this)">🤖 ロボット</button>
+    <button class="fb" onclick="flt('霊的',this)">👻 霊的</button>
+    <button class="fb" onclick="flt('人間',this)">💗 人間</button>
+  </div>
+  <div class="pgrid" id="petGrid"></div>
+  <div class="sfooter"><button class="bsel" id="btnSel" disabled onclick="goName()">この子を選ぶ →</button></div>
+</div>
+
+<!-- 名前 -->
+<div id="scrName" class="scr">
+  <div class="nbox">
+    <span class="npet" id="nEmoji">🐶</span>
+    <div class="nsp" id="nSp">いぬ</div>
+    <div class="nt">名前と性別を決めてあげて</div>
+    <div class="ns">一緒に生きる相棒に、大切な名前を。</div>
+    <div class="gsel" id="gSel">
+      <button class="gbtn m" id="gM" onclick="selG('male')">♂ オス</button>
+      <button class="gbtn f" id="gF" onclick="selG('female')">♀ メス</button>
+    </div>
+    <input type="text" class="ninp" id="nInp" placeholder="名前を入力…" maxlength="10">
+    <div class="nsugs" id="nSugs"></div>
+    <button class="badopt" onclick="adopt()">この子を迎える！🐾</button>
+    <button class="bback" onclick="show('scrShop')">← ペット選びに戻る</button>
+  </div>
+</div>
+
+<!-- 到着 -->
+<div id="scrArrive" class="scr">
+  <div class="arremoji" id="aEmoji">🐶</div>
+  <div class="arrt" id="aTitle">やってきた！</div>
+  <div class="arrb" id="aBub">はじめまして！</div>
+  <button class="bstart" onclick="startLife()">いっしょに暮らす 🐾</button>
+</div>
+
+<!-- ホーム -->
+<div id="scrHome" class="scr">
+  <div class="hpet">
+    <div class="bigpet" id="bigPet">🐶</div>
+  </div>
+  <div class="hinfo">
+    <div><div class="hname" id="hName">-</div><div class="hsub" id="hSub">-</div></div>
+    <div class="twrap">
+      <span class="tlbl">信頼</span>
+      <div class="tbg"><div class="tbar" id="tBar" style="width:5%"></div></div>
+      <span class="tnum" id="tNum">5</span>
+    </div>
+    <button class="mbtn" onclick="openDrw()">☰</button>
+  </div>
+  <div class="chat" id="chatArea"></div>
+  <div class="iarea">
+    <div class="qbtns" id="qBtns"></div>
+    <div class="irow">
+      <textarea class="cinp" id="cInp" placeholder="話しかけてみて…" rows="1"
+        oninput="ar(this)" onkeydown="hk(event)"></textarea>
+      <button class="sbtn" id="sBtn" onclick="send()">➤</button>
+    </div>
+  </div>
+</div>
+
+<!-- ドロワー -->
+<div class="dov" id="dOv" onclick="closeDrw()"></div>
+<div class="drw" id="drw">
+  <div class="dh">🐾 プロフィール
+    <div class="dbtns">
+      <button class="dbtn adm admin-only" onclick="closeDrw();openAdmin();" style="display:none;">⚙️ 管理</button>
+      <button class="dbtn" onclick="pLogout()">ログアウト</button>
+    </div>
+  </div>
+  <div class="dpet" id="dPet">🐶</div>
+  <div class="dtrust"><div class="dtn" id="dTN">5</div><div class="dtl" id="dTL">はじめまして</div></div>
+  <div class="dsec">
+    <div class="dsl">ペット情報</div>
+    <div class="di"><span class="dik">名前</span><span class="div" id="dNm">-</span></div>
+    <div class="di"><span class="dik">種類・性別</span><span class="div" id="dSp">-</span></div>
+    <div class="di"><span class="dik">会話数</span><span class="div" id="dCv">0回</span></div>
+    <div class="di"><span class="dik">一緒に</span><span class="div" id="dDy">0日</span></div>
+  </div>
+  <div class="dsec">
+    <div class="dsl">💾 記憶サマリー</div>
+    <div class="mem-box" id="memBox"><div class="mem-empty">まだ記憶がありません</div></div>
+  </div>
+  <div class="dsec">
+    <div class="dsl">覚えたキーワード</div>
+    <div class="tgl" id="dTags"></div>
+  </div>
+  <button class="bnew" onclick="newPet()">🔄 新しいペットを迎える</button>
+</div>
+
+<script>
+const PETS=[
+  {id:'dog',emoji:'🐶',name:'いぬ',type:'動物',rarity:'',vM:'wanM',vF:'wanF',gM:'わんっ！{n}だよ！ずっとそばにいるから！',gF:'わんわん♡ {n}だよ！いっしょにいようね！'},
+  {id:'cat',emoji:'🐱',name:'ねこ',type:'動物',rarity:'',vM:'catM',vF:'catF',gM:'…{n}だ。まあ、一緒にいてやるよ。',gF:'…{n}よ。気が向いたら相手してあげる。'},
+  {id:'rabbit',emoji:'🐰',name:'うさぎ',type:'動物',rarity:'',vM:'softM',vF:'softF',gM:'ぴょん！{n}だよ！よろしくね！',gF:'{n}っていうの♪ よろしくね！'},
+  {id:'hamster',emoji:'🐹',name:'ハムスター',type:'動物',rarity:'',vM:'softM',vF:'softF',gM:'もきゅ…{n}だよ。仲良くしてね。',gF:'もきゅもきゅ…{n}なの。よろしくね♪'},
+  {id:'bear',emoji:'🐻',name:'くま',type:'動物',rarity:'',vM:'coolM',vF:'coolF',gM:'よう。{n}だ。のんびりやろうぜ。',gF:'{n}よ。ゆっくり仲良くなりましょ。'},
+  {id:'fox',emoji:'🦊',name:'きつね',type:'動物',rarity:'rare',vM:'smartM',vF:'smartF',gM:'やあ、{n}だ。賢い相棒が欲しかったろ？',gF:'ふふ、{n}よ。賢さには自信があるわ。'},
+  {id:'wolf',emoji:'🐺',name:'おおかみ',type:'動物',rarity:'rare',vM:'coolM',vF:'coolF',gM:'…{n}だ。お前は特別にしてやる。',gF:'…{n}。あなたを選んだわ。'},
+  {id:'panda',emoji:'🐼',name:'パンダ',type:'動物',rarity:'rare',vM:'softM',vF:'softF',gM:'もぐもぐ…{n}だよ。よろしくね。',gF:'はふ〜♡ {n}なの。よろしくね〜。'},
+  {id:'owl',emoji:'🦉',name:'フクロウ',type:'動物',rarity:'rare',vM:'smartM',vF:'smartF',gM:'ホウ。{n}です。知識でお役に立ちましょう。',gF:'ホウ…{n}よ。知恵を貸してあげますわ。'},
+  {id:'unicorn',emoji:'🦄',name:'ユニコーン',type:'幻想',rarity:'epic',vM:'softM',vF:'softF',gM:'{n}だよ！夢を一緒に追いかけよう！',gF:'きらきら〜！{n}よ♡'},
+  {id:'dragon',emoji:'🐲',name:'ドラゴン',type:'幻想',rarity:'epic',vM:'coolM',vF:'coolF',gM:'フム…{n}だ。お前と共に飛ぼう。',gF:'{n}よ。私の炎で守ってあげる。'},
+  {id:'fairy',emoji:'🧚',name:'ようせい',type:'幻想',rarity:'rare',vM:'softM',vF:'softF',gM:'きゃー！{n}だよ！魔法でお手伝いするね！',gF:'きゃきゃ！{n}よ♡'},
+  {id:'angel',emoji:'👼',name:'てんし',type:'神話',rarity:'epic',vM:'softM',vF:'softF',gM:'ふわあ…{n}です。守っていますよ。',gF:'ふわあ…{n}よ。ずっと守ってあげますね♡'},
+  {id:'demon',emoji:'😈',name:'あくま',type:'神話',rarity:'epic',vM:'catM',vF:'catF',gM:'フハハ！{n}だ。本当のことは言うぞ。',gF:'ふふふ…{n}よ。本音で付き合ってあげる。'},
+  {id:'god',emoji:'⚡',name:'かみさま',type:'神話',rarity:'legend',vM:'smartM',vF:'smartF',gM:'やあ。{n}だよ。何でも聞いてくれ。',gF:'…{n}。あなたの声、聞こえているわ。'},
+  {id:'robot',emoji:'🤖',name:'ロボット',type:'ロボット',rarity:'',vM:'smartM',vF:'smartF',gM:'起動完了。{n}、稼働開始。',gF:'起動完了。{n}よ。'},
+  {id:'ai',emoji:'💻',name:'AI',type:'ロボット',rarity:'epic',vM:'smartM',vF:'smartF',gM:'ハロー。{n}です。',gF:'ハロー。{n}よ。'},
+  {id:'ghost',emoji:'👻',name:'おばけ',type:'霊的',rarity:'',vM:'softM',vF:'softF',gM:'ひゃー！…{n}だよ。友達になってくれる？',gF:'ひゃ〜！…{n}なの。'},
+  {id:'spirit',emoji:'🌟',name:'せいれい',type:'霊的',rarity:'epic',vM:'smartM',vF:'smartF',gM:'…{n}。この世界は美しい。',gF:'…{n}。美しい世界を、一緒に見ましょう。'},
+  {id:'kitsune',emoji:'🦊',name:'きつね神',type:'霊的',rarity:'legend',vM:'catM',vF:'catF',gM:'ふふ…{n}よ。全てお見通しだ。',gF:'ふふふ…{n}。全部見えてるわよ。'},
+  {id:'cashier',emoji:'👩‍💼',name:'レジのお姉さん',type:'人間',rarity:'legend',vM:'softF',vF:'softF',
+   gM:'あ、いらっしゃいませ〜！{n}です♪',gF:'あ、いらっしゃいませ〜！{n}です♪'},
+];
+const VS={
+  wanM:{e:['！','！！','ぞ！','よ！'],t:'明るく元気・男性'},wanF:{e:['！','♡','よ！','ね♪'],t:'明るく元気・女性'},
+  catM:{e:['。','…','だ。','な。'],t:'気まぐれクール・男性'},catF:{e:['。','…','わ。','かしら。'],t:'気まぐれクール・女性'},
+  softM:{e:['ね。','よ。','な。','ね！'],t:'優しく穏やか・男性'},softF:{e:['ね♪','♡','よ〜','の♪'],t:'優しくふんわり・女性'},
+  coolM:{e:['。','だ。','ぞ。','か。'],t:'クールで落ち着いた・男性'},coolF:{e:['わ。','のよ。','かしら。','ね。'],t:'クールで凛とした・女性'},
+  smartM:{e:['ます。','ですね。','でしょう。','です。'],t:'知的分析的・男性'},smartF:{e:['ますわ。','ですわね。','でしょう。','です。'],t:'知的上品・女性'},
+};
+
+// STATE
+var S={pet:null,nm:'',gd:'female',tr:5,cc:0,sd:null,
+  msgs:[],memo:[],kw:[],hb:[],cortisol:'normal',gfMode:false};
+var selId=null,selGender='female';
+const SK='petchi-v6';
+const FB='https://us-central1-kensetsu-nippo-842a2.cloudfunctions.net';
+const AK='HH-2026-kensetsu-daiku';
+
+// 保存・読み込み
+function save(){try{localStorage.setItem(SK,JSON.stringify({...S,msgs:S.msgs.slice(-10)}));}catch(e){}}
+function load(){
+  try{var r=localStorage.getItem(SK);if(!r)return false;
+    var d=JSON.parse(r);if(!d.pet||!d.nm)return false;Object.assign(S,d);return true;}
+  catch(e){return false;}
+}
+
+// 画面
+function show(id){document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));document.getElementById(id).classList.add('on');}
+function showApp(){
+  document.getElementById('loginWrap').classList.remove('on');
+  document.getElementById('appBar').classList.add('on');
+  if(load()&&S.pet){show('scrHome');initHome();}else{show('scrShop');renderPets();}
+}
+function showLogin(){
+  document.getElementById('loginWrap').classList.add('on');
+  document.getElementById('appBar').classList.remove('on');
+}
+
+// ログイン
+async function pLogin(){
+  var e=document.getElementById('lEmail').value.trim();
+  var p=document.getElementById('lPass').value;
+  var err=document.getElementById('lErr');err.textContent='';
+  if(!e||!p){err.textContent='メールとパスワードを入力してください';return;}
+  try{await window.__fb.signIn(e,p);}catch(ex){
+    var m={'auth/invalid-credential':'メールまたはパスワードが違います','auth/user-not-found':'登録されていません','auth/wrong-password':'パスワードが違います'};
+    err.textContent=m[ex.code]||ex.message;
+  }
+}
+async function pLogout(){if(!confirm('ログアウトしますか？'))return;closeDrw();await window.__fb.signOut();}
+
+// 管理
+function openAdmin(){document.getElementById('adminWrap').classList.add('on');loadUsers();}
+function closeAdmin(){document.getElementById('adminWrap').classList.remove('on');}
+function genPass(){var c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#';var p='';for(var i=0;i<10;i++)p+=c[Math.floor(Math.random()*c.length)];document.getElementById('aPass').value=p;}
+async function addUser(){
+  var nm=document.getElementById('aName').value.trim();
+  var em=document.getElementById('aEmail').value.trim();
+  var pw=document.getElementById('aPass').value;
+  var err=document.getElementById('aErr');err.style.color='var(--rd)';err.textContent='';
+  if(!nm||!em||pw.length<6){err.textContent='全項目を入力してください（PW6文字以上）';return;}
+  try{
+    var cr=await window.__fb.signUp(em,pw);
+    await window.__fb.setUser(cr.user.uid,{uid:cr.user.uid,name:nm,email:em,isAdmin:false,createdAt:window.__fb.ts()});
+    err.style.color='var(--gn)';err.textContent='✅ '+nm+' を登録しました！';
+    ['aName','aEmail','aPass'].forEach(id=>document.getElementById(id).value='');
+    loadUsers();
+  }catch(ex){
+    var m={'auth/email-already-in-use':'このメールは登録済みです','auth/weak-password':'PWは6文字以上'};
+    err.textContent=m[ex.code]||ex.message;
+  }
+}
+async function loadUsers(){
+  var el=document.getElementById('userList');el.innerHTML='<div style="color:#aaa;">読み込み中...</div>';
+  try{
+    var sn=await window.__fb.getUsers();
+    if(sn.empty){el.innerHTML='<div style="color:#aaa;">登録ユーザーなし</div>';return;}
+    var h='';sn.forEach(d=>{var u=d.data();
+      h+='<div class="uitem"><div><div class="uname">'+u.name+(u.isAdmin?'<span class="ubadge">管理者</span>':'')+'</div>'
+        +'<div class="uemail">'+(u.email||d.id)+'</div></div>'
+        +'<button class="udel" onclick="delUser(\''+d.id+'\',\''+(u.name||'').replace(/'/g,"\\'")+'\',this)">削除</button></div>';
+    });el.innerHTML=h;
+  }catch(ex){el.innerHTML='<div style="color:var(--rd);">エラー: '+ex.message+'</div>';}
+}
+async function delUser(uid,nm,btn){
+  if(!confirm(nm+' を削除しますか？'))return;btn.disabled=true;
+  try{await window.__fb.delUser(uid);loadUsers();}
+  catch(ex){alert('エラー: '+ex.message);btn.disabled=false;}
+}
+
+// ショップ
+function renderPets(type){
+  var list=!type||type==='all'?PETS:PETS.filter(p=>p.type===type);
+  document.getElementById('petGrid').innerHTML=list.map(p=>{
+    var r=p.rarity?'<span class="prarity '+(p.rarity==='legend'?'rl':p.rarity==='epic'?'re':'rr')+'">'+(p.rarity==='legend'?'伝説':p.rarity==='epic'?'Epic':'Rare')+'</span>':'';
+    return '<div class="pcard'+(selId===p.id?' sel':'')+'" id="pc-'+p.id+'" onclick="selPet(\''+p.id+'\')">'
+      +r+'<span class="pemoji">'+p.emoji+'</span><div class="pname">'+p.name+'</div><div class="ptype">'+p.type+'</div></div>';
+  }).join('');
+}
+function flt(type,btn){document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));btn.classList.add('on');renderPets(type);}
+function selPet(id){selId=id;document.querySelectorAll('.pcard').forEach(c=>c.classList.remove('sel'));var c=document.getElementById('pc-'+id);if(c)c.classList.add('sel');document.getElementById('btnSel').disabled=false;}
+
+// 名前
+function goName(){
+  if(!selId)return;
+  var p=PETS.find(p=>p.id===selId);
+  document.getElementById('nEmoji').textContent=p.emoji;
+  document.getElementById('nSp').textContent=p.name;
+  document.getElementById('gSel').style.display=p.id==='cashier'?'none':'flex';
+  selG('female');show('scrName');
+}
+function selG(g){selGender=g;document.getElementById('gM').classList.toggle('on',g==='male');document.getElementById('gF').classList.toggle('on',g==='female');}
+function adopt(){
+  var nm=document.getElementById('nInp').value.trim();
+  if(!nm){toast('名前を入れてね！');return;}
+  var p=PETS.find(p=>p.id===selId);
+  S={pet:p,nm:nm,gd:selGender,tr:5,cc:0,sd:new Date().toISOString(),msgs:[],memo:[],kw:[],hb:[],cortisol:'normal',gfMode:false};
+  var gr=(selG==='female'?p.gF:p.gM).replace('{n}',nm);
+  document.getElementById('aEmoji').textContent=p.emoji;
+  document.getElementById('aTitle').textContent=nm+'がやってきた！';
+  document.getElementById('aBub').textContent=gr;
+  show('scrArrive');
+}
+function startLife(){save();show('scrHome');initHome();}
+
+// ホーム
+function initHome(){
+  var p=S.pet;
+  document.getElementById('bigPet').textContent=p.emoji;
+  document.getElementById('hName').textContent=S.nm;
+  document.getElementById('hSub').textContent=p.name+'・'+(S.gd==='male'?'オス':'メス');
+  updTrust();updQ();
+  var area=document.getElementById('chatArea');area.innerHTML='';
+  if(!S.msgs.length){
+    var gr=(S.gd==='female'?p.gF:p.gM).replace('{n}',S.nm);
+    addMsg('pet',gr);
+  }else{S.msgs.forEach(m=>addMsgDOM(m.r,m.t,m.tm,false));scrl();}
+}
+function updTrust(){var t=S.tr;document.getElementById('tBar').style.width=t+'%';document.getElementById('tNum').textContent=t;}
+function updQ(){
+  var t=S.tr;var b=['おはよう','おやすみ','今日どうだった？','ありがとう'];
+  if(t>=40)b.push('悩みを聞いて');if(t>=70)b.push('ずっとそばにいてね');
+  document.getElementById('qBtns').innerHTML=b.slice(0,5).map(r=>'<button class="qbtn" onclick="qSend(\''+r+'\')">'+r+'</button>').join('');
+}
+function addMsg(role,text){
+  var tm=new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+  S.msgs.push({r:role,t:text,tm:tm});
+  if(S.msgs.length>10)S.msgs=S.msgs.slice(-10);
+  addMsgDOM(role,text,tm,true);save();
+}
+function addMsgDOM(r,t,tm,an){
+  var a=document.getElementById('chatArea'),w=document.createElement('div');w.className='mw '+r;
+  var isu=r==='user';
+  var av=isu?'<div class="mav ua">👤</div>':'<div class="mav">'+S.pet.emoji+'</div>';
+  w.innerHTML=(isu?'':av)+'<div class="mb '+r+'">'+esc(t)+'<div class="mt">'+tm+'</div></div>'+(isu?av:'');
+  if(an){w.style.opacity='0';w.style.transform='translateY(8px)';}
+  a.appendChild(w);
+  if(an)requestAnimationFrame(()=>{w.style.transition='all .3s';w.style.opacity='1';w.style.transform='translateY(0)';});
+  scrl();
+}
+function scrl(){setTimeout(()=>{var a=document.getElementById('chatArea');a.scrollTop=a.scrollHeight;},80);}
+function showTyp(){
+  var a=document.getElementById('chatArea'),d=document.createElement('div');d.className='mw';d.id='tw';
+  d.innerHTML='<div class="mav">'+S.pet.emoji+'</div><div class="typ"><div class="td"></div><div class="td"></div><div class="td"></div></div>';
+  a.appendChild(d);scrl();
+}
+function hideTyp(){var e=document.getElementById('tw');if(e)e.remove();}
+function qSend(t){document.getElementById('cInp').value=t;send();}
+function hk(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}}
+function ar(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,76)+'px';}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// 感情・学習
+function learn(text){
+  var hb=['読書','映画','ゲーム','料理','音楽','散歩','旅行','スポーツ','筋トレ','アニメ','漫画'];
+  hb.forEach(h=>{if(text.includes(h)&&!S.hb.includes(h))S.hb.push(h);});
+  var ws=text.match(/[ぁ-ん一-龠]{2,5}/g)||[];
+  var st=['こと','もの','これ','それ','どこ','なに','いつ','だから','けど','でも','から'];
+  ws.forEach(w=>{if(!st.includes(w)&&!S.kw.includes(w)&&S.kw.length<15)S.kw.push(w);});
+  var hl=['つらい','疲れた','しんどい','悲しい','不安'];
+  var hp=['嬉しい','楽しい','できた','やった','最高'];
+  if(hl.some(w=>text.includes(w)))S.cortisol='heal';
+  else if(hp.filter(w=>text.includes(w)).length>=2)S.cortisol='hype';
+  else S.cortisol='normal';
+}
+
+// 記憶圧縮（5会話ごとにGeminiで要約）
+async function compressMemo(){
+  if(S.msgs.length<5||S.msgs.length%5!==0)return;
+  try{
+    var recent=S.msgs.slice(-6).map(m=>(m.r==='user'?'飼い主:':'ペット:')+m.t).join('\n');
+    var r=await fetch(FB+'/askClaude',{method:'POST',
+      headers:{'Content-Type':'application/json','X-Access-Key':AK},
+      body:JSON.stringify({prompt:'以下の会話から飼い主の重要情報を50文字以内で箇条書き1〜2項目で要約してください。重要でなければ「なし」とだけ答えてください。\n'+recent,model:'gemini-2.5-flash'})});
+    var d=await r.json();
+    var txt=(d?.candidates?.[0]?.content?.parts?.[0]?.text||'').trim();
+    if(txt&&txt!=='なし'&&txt.length>3){
+      if(!S.memo)S.memo=[];
+      S.memo.push(txt);
+      if(S.memo.length>5)S.memo=S.memo.slice(-5);
+      save();
+    }
+  }catch(e){}
+}
+
+// Gemini
+async function callAI(text){
+  var p=S.pet,vs=VS[S.gd==='female'?p.vF:p.vM];
+  var memo=S.memo&&S.memo.length?'【記憶】\n'+S.memo.join('\n')+'\n':'';
+  var sys='';
+  if(p.id==='cashier'){
+    var rel=S.tr<20?'まだ他人の店員':S.tr<40?'顔なじみ':S.tr<60?'仲良しの店員':S.tr<80?'好意がにじむ存在':'彼女';
+    sys='あなたはスーパーの女性店員「'+S.nm+'」。関係:'+rel+'。'+memo+'1〜3文で返答。AIと言わない。';
+  }else{
+    var lv=S.tr<20?'まだ出会ったばかり':S.tr<40?'少し慣れてきた':S.tr<60?'仲良し':S.tr<80?'信頼できる相棒':'魂の絆';
+    var md=S.cortisol==='heal'?'飼い主は疲れている。癒し・共感モードで。':S.cortisol==='hype'?'一緒に盛り上がる。':'通常。';
+    sys='あなたは「'+S.nm+'」という'+p.emoji+'('+p.name+')。'+(S.gd==='male'?'オス':'メス')+'。'
+      +'話し方:'+vs.t+' 語尾:'+vs.e.join('、')+'。信頼:'+S.tr+'('+lv+')。'+md
+      +memo+'趣味:'+(S.hb.join('、')||'不明')+'。1〜4文で返答。AIと言わない。';
+  }
+  var r=await fetch(FB+'/askClaude',{method:'POST',
+    headers:{'Content-Type':'application/json','X-Access-Key':AK},
+    body:JSON.stringify({prompt:sys+'\n\n飼い主:'+text,model:'gemini-2.5-flash'})});
+  if(!r.ok)throw new Error(r.status);
+  var d=await r.json();
+  return d?.candidates?.[0]?.content?.parts?.[0]?.text||'…';
+}
+
+// ローカル返答
+function local(text){
+  var vs=VS[S.gd==='female'?S.pet.vF:S.pet.vM];var e=vs.e;
+  if(S.cortisol==='heal')return S.tr<30?'そっか…大丈夫'+e[0]:'全部話して'+e[1]+' ここにいるから'+e[0];
+  if(text.match(/おはよう/))return 'おはよう'+e[0]+'今日も頑張ろ'+e[1];
+  if(text.match(/おやすみ/))return 'おやすみ'+e[0]+'ゆっくり休んで'+e[0];
+  if(text.match(/ありがとう/))return 'どういたしまして'+e[0];
+  return S.tr>50?'そうなんだ〜'+e[0]+'もっと聞かせて'+e[1]:'うん'+e[0];
+}
+
+// 送信
+async function send(){
+  var inp=document.getElementById('cInp');var text=inp.value.trim();if(!text)return;
+  inp.value='';inp.style.height='';document.getElementById('sBtn').disabled=true;
+  addMsg('user',text);S.cc++;learn(text);showTyp();
+  try{var rep=await callAI(text);hideTyp();addMsg('pet',rep);}
+  catch(e){hideTyp();addMsg('pet',local(text));}
+  S.tr=Math.min(100,S.tr+(p.id==='cashier'?2:Math.random()<.5?1:0));
+  if(S.pet.id==='cashier'&&S.tr>=80&&!S.gfMode){S.gfMode=true;toast('💗 彼女になった！');}
+  updTrust();updQ();document.getElementById('sBtn').disabled=false;
+  save();compressMemo();
+}
+
+// ドロワー
+function openDrw(){updDrw();document.getElementById('dOv').classList.add('on');document.getElementById('drw').classList.add('on');}
+function closeDrw(){document.getElementById('dOv').classList.remove('on');document.getElementById('drw').classList.remove('on');}
+function updDrw(){
+  var dy=S.sd?Math.floor((Date.now()-new Date(S.sd).getTime())/86400000):0;
+  var t=S.tr;
+  var lv=[[0,'はじめまして'],[20,'ちょっと慣れてきた'],[40,'仲良し'],[60,'信頼できる相棒'],[80,'親友レベル'],[95,'魂の絆']];
+  var l=[...lv].reverse().find(x=>t>=x[0])||lv[0];
+  document.getElementById('dPet').textContent=S.pet.emoji;
+  document.getElementById('dTN').textContent=t;
+  document.getElementById('dTL').textContent=l[1];
+  document.getElementById('dNm').textContent=S.nm;
+  document.getElementById('dSp').textContent=S.pet.name+'・'+(S.gd==='male'?'オス':'メス');
+  document.getElementById('dCv').textContent=S.cc+'回';
+  document.getElementById('dDy').textContent=dy+'日';
+  var mb=document.getElementById('memBox');
+  mb.innerHTML=S.memo&&S.memo.length?S.memo.map(m=>'<div class="mem-item">'+esc(m)+'</div>').join(''):'<div class="mem-empty">まだ記憶がありません</div>';
+  document.getElementById('dTags').innerHTML=S.kw.length?S.kw.slice(0,12).map(k=>'<span class="tg">'+k+'</span>').join(''):'<div style="font-size:11px;color:var(--bl);">まだ何も覚えていません</div>';
+}
+function newPet(){
+  if(!confirm('新しいペットを迎えるとデータがリセットされます。よろしいですか？'))return;
+  S={pet:null,nm:'',gd:'female',tr:5,cc:0,sd:null,msgs:[],memo:[],kw:[],hb:[],cortisol:'normal',gfMode:false};
+  try{localStorage.removeItem(SK);}catch(e){}
+  selId=null;closeDrw();show('scrShop');renderPets();
+}
+
+// トースト
+function toast(msg){var t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>{t.style.transition='opacity .5s';t.style.opacity='0';setTimeout(()=>t.remove(),500);},2000);}
+</script>
+</body>
+</html>
